@@ -1,0 +1,550 @@
+<!doctype html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<title>HTML Crossy Road</title>
+	<style>
+
+		/* List of RGBs:
+		Body BG ( + Log color ) : #59133f
+		Body Text ( + Road Border ) : #a84683
+
+		Menu BG: #501038
+		Menu Stroke: #691b4b
+		Menu Text: #d484b5
+
+		BTN BG: #691b4b
+		BTN Stroke: #993d77
+		BTN Text: #d484b5
+		BTN Pressed: #8b2865
+
+		Road BG: #320823
+		Road Border: #a84683
+		River BG: #7d215b
+		River Death Zone Text: #9d487e
+		River Death Zone Color: #6b1c4e
+
+		Hazard Color: #d4ff00
+
+		ScoreSpan Color: #d484b5
+		*/
+
+
+		body {
+			font-family: 'Consolas', monospace;
+
+			background-color: #59133f;
+			color: #a84683;
+
+			margin: 0;
+			padding-top: 180px;
+			overflow-x: hidden;
+
+			cursor: default;
+		}
+
+		body.scroll-locked {
+			overflow: hidden;
+			touch-action: none;
+		}
+
+		/* hide scrollbars */
+		html, body  {
+            scrollbar-width: none;
+            -ms-overflow-style: none;
+		}
+		html::-webkit-scrollbar,
+		body::-webkit-scrollbar {
+		    display: none;
+			width: 0;
+			height: 0;
+		}
+
+		.menu {
+			background-color: #501038;
+			color: #d484b5;
+
+			position: fixed;
+			width: 100%;
+			top: 0px;
+			left: 0px;
+			padding: 40px 0px;
+
+			display: flex;
+			font-size: 25px;
+			align-items: center;
+			justify-content: center;
+			gap: 50px;
+
+			border-bottom: 10px solid #691b4b;
+
+			z-index: 1002;
+
+			transition: transform 0.4s ease-in-out;
+			will-change: transform;
+		}
+
+		.menu.hide {
+			transform: translateY(-180px);
+		}
+
+		.button {
+			background-color: #691b4b;
+			color: #d484b5;
+
+			border: 2px solid #993d77;
+			border-radius: 15px;
+
+			font-size: 25px;
+			font-weight: bold;
+			text-align: center;
+
+			padding: 7px 16px;
+			cursor: pointer;
+		}
+
+		.button:active {
+			background-color: #8b2865;
+			transform: scale(0.98);
+		}
+
+
+
+		/* ===== Playing Zones ===== ############################## */
+
+		.road, .river, .safe-zone {
+			display: flex;
+			align-items: center;
+			width: 100vw;
+			height: 40px;
+			box-sizing: border-box;
+			position: relative;
+			overflow: hidden;
+			white-space: pre;
+		}
+
+
+		.road {
+			background-color: #320823;
+			border-top: 2px solid #a84683;
+			border-bottom: 2px solid #a84683;
+		}
+			.road + .road { border-top: none; }
+
+
+		.river {
+			background-color: #7d215b;
+			color: #9d487e;
+			z-index: 1;
+		}
+
+
+		.safe-zone {
+		    white-space: nowrap;
+            line-height: 40px;
+		    display: inline-block;
+            text-align: justify;
+            text-align-last: justify;
+		}
+
+
+
+		/* ===== river death zone + design "~" setup ===== ############################## */
+
+		.riverDeathZone {
+		    display: flex;
+			background-color: #6b1c4e;
+
+			align-items: center;
+			width: 100%;
+			height: 80%;
+			cursor: not-allowed;
+
+			position: relative;
+		}
+
+
+
+		/* ===== hazard and logs ===== ############################## */
+
+		.hazard, .log {
+			position: absolute;
+			white-space: nowrap;
+			will-change: transform;
+			font-size: 25px;
+			z-index: 2;
+		}
+
+		.hazard {
+		    color: #d4ff00;
+			cursor: not-allowed;
+		}
+
+		.log {
+		    color: #59133f;
+			font-size: 30px;
+			height: 100%;
+
+			display: flex;
+			align-items: center;
+			letter-spacing: 1px;
+		}
+
+
+
+		/* ===== hazard movement ===== ############################## */
+
+		@keyframes move-left {
+			0% { transform: translateX(100vw); }
+			100% { transform: translateX(-100%); }
+		}
+
+		@keyframes move-right {
+			0% { transform: translateX(-100%); }
+			100% { transform: translateX(100vw); }
+		}
+
+
+/* ######################################################################################## */
+
+	</style>
+</head>
+<body class="scroll-locked">
+	<div id="menu" class="menu">
+		<button id="start" class="button">START</button><span id="best-score">Best Score: 0</span>
+	</div>
+
+	<span id="score-counter" style="color: #d484b5; position: fixed; top: 20px; right: 40px; font-size: 40px; font-weight: bold; z-index: 1001;">0</span>
+
+<!-- ######################################################################################## -->
+
+	<script>
+		// ----- Variables -----
+		const menu_div = document.getElementById('menu');
+		const scoreSpan = document.getElementById('score-counter');
+		const highscoreSpan = document.getElementById('best-score');
+		const startBTN = document.getElementById('start');
+
+		const mouseScrollSpeedMOD = 0.1;
+		const keyScrollDistance = 10;
+
+		const minDUR = 2;
+		const maxDUR = 10;
+
+		let IsGameStart = false;
+		let score = 0;
+		let highscore = localStorage.getItem('HTMLCrossyRoad') || 0;
+
+		let lastLaneType = 'safe-zone';
+		let dangerLanesCount = rand(8, 1);
+		let currentDangerLanesCount = 0;
+
+		let riverGoLeft = true;
+
+		let dontSafeZone = false;
+
+		let scrollLimitY = 0;
+
+		let lineIDX = 0;
+
+		const safeTextPool = [
+			"   .   ,',    . *         *,',     ,',       ',    ','   '  ",
+			" ,',   ,'  ',   ',      ',         ,'        ',          ,' ",
+			"    *        *,       '*   *         ,'    ','         ',   ",
+			", ;     '  ,      ,    ,       '    '  `    ,    ;        ' ",
+			"   ,',       ,',                   *           ,'     ',    ",
+			"  ;       ,'     ', *      '*    `   .'     '.     *       '"
+		];
+
+		const riverTextPool = [
+			" ~   ~ ≈    ~   ~ ~    ~     ≈ ≈    ~ ~    ≈     ≈   ~  ~   ",
+			"   ~   ~~  ~  ° 𓆞 ~~~  ~   ~~     ~  ~~     𓆞 ~~  ~~   ~  ",
+			"~   ~   ~    ~ ~    ~  ≈   ~~    ~   ≈   ~     ~    ~     ~ ",
+			" ~  ≈  ~ ~   ~  ~~~   ~    ~ ~~~~~   ~   ~~   ~~~~   ~   ~  ",
+			" ≈ ~   ~ ~~~   ~~ ~≈~     ~  ~       ~  ° o 𓆟 ~   ~ ~~~   ~",
+			" ~ ~~   ~ ~~~  ~  ° 𓆝  ~   ~~  ~~~ ~≈~~  ~~~  ~~    ~  ~   "
+		];
+
+		const roadTextPool = [
+			"VROOOOOOOOOOOM", "MLG", "MOMGETTHECAMERA!", "THERIDDLER", "B",
+			"Slurss", "DONTDOIT", "CANTTOUCHTHIS", "DIDDYBLUD", "SMHHHHHH",
+			"WhatIsThisDiddyBludDoinOnACalculator", "SkibidiToilet", "TOT",
+			"TUNG-TUNG-TUNG-SAHUR", "THE-BITE-OF-87", "RIZZ", "<<DEATH!>>",
+			"8====D","( ͡° ͜ʖ ͡°)","¯\_(ツ)_/¯","KUPAL","!##!$%","LOREM IPSUM",
+			"><(((('>",")xxxxx[;;;;;;;;;>","BAHALA=NA","MAYAMATSKABOSSSSS",
+			">:()","HOLLOW-PURPLE","AMBER!!!ALERT","HEROBRINE","ENTITY303",
+			"Mambo","I'mCrineSon","Password123","[BIGSHOT!!!]","TV-TIME!!",
+			"Kachow","Jumpscare","UltraGassy","I_Like_Femboys","AlphaMale"
+		];
+
+
+
+		// ----- Initialize -----
+		scoreSpan.textContent = score;
+		highscoreSpan.textContent = "Best Score: " + highscore;
+		for (let i = 0; i < 25; i++) { generateLine(); }
+
+
+
+		// ##### THE NITTY GRITTY #####
+
+
+
+		// ----- event listeners -----
+		startBTN.addEventListener('click', () => {
+			IsGameStart = true;
+			document.body.classList.remove('scroll-locked');
+			menu_div.classList.add('hide');
+			startBTN.disabled = true;
+			scrollLimitY = window.scrollY;
+
+		});
+
+		document.body.addEventListener('mouseover', (event) => {
+			if (!IsGameStart) return;
+
+			if (event.target.classList.contains('hazard')) {
+				GameOver("Drive in my truck... Right after a Beer!");
+				return;
+			}
+
+			if (event.target.classList.contains('riverDeathZone')) {
+				GameOver("Drowned lmfaoooo");
+				return;
+			}
+
+			const lane = event.target.closest('.road, .river, .safe-zone');
+			const laneIndex = parseInt(lane.dataset.index, 10);
+			if ( laneIndex > score ) {
+			    score = laneIndex;
+				scoreSpan.textContent = score;
+			}
+		});
+
+		window.addEventListener('scroll', () => {
+			if (!IsGameStart) return;
+
+			if (window.scrollY < scrollLimitY) {
+				window.scrollTo(0, scrollLimitY);
+				return;
+			}
+			scrollLimitY = window.scrollY;
+
+			const { scrollTop, scrollHeight, clientHeight } = document.documentElement;
+
+			if (scrollTop + clientHeight >= scrollHeight - 300) {
+				for (let i = 0; i < 5; i++) {
+					generateLine();
+				}
+				unloadOldLanes();
+			}
+		});
+
+
+
+		// ----- anti cheat -----
+		document.documentElement.addEventListener('mouseleave', (event) => {
+		    if (!IsGameStart) return;
+
+			const width = window.innerWidth;
+			const heigh = window.innerHeight;
+
+			const leftBounds =
+			    event.clientX <= 0 ||
+				event.clientX >= width ||
+				event.clientY <= 0 ||
+				event.clientY >= height;
+
+		    if ( leftBounds ) {
+				GameOver("No Leaving the playing area");
+				return;
+			}
+		})
+
+		window.addEventListener('resize', () => {
+		    if (!IsGameStart) return;
+
+			const mouseInWindow = document.querySelector('html:hover') !== null;
+			if (!mouseInWindow) { GameOver("No leaving the playing area"); return; }
+		})
+
+		document.addEventListener('contextmenu', (event) => event.preventDefault());
+
+
+
+		// ----- adjusting scroll amounts -----
+		window.addEventListener('wheel', (event) => {
+		    if (!IsGameStart) return;
+			event.preventDefault();
+
+			let scrollAmount = event.deltaY * mouseScrollSpeedMOD;
+			window.scrollBy({
+			    top: scrollAmount,
+				behavior: 'auto'
+			});
+		}, { passive: false });
+
+		window.addEventListener('keydown', (event) => {
+		    if (!IsGameStart) return;
+
+			if (event.key === 'ArrowDown' || event.key === 'PageDown') {
+                event.preventDefault();
+                window.scrollBy(0, keyScrollDistance);
+			}
+		});
+
+
+
+		// ----- functions -----
+		function generateLine() {
+			lineIDX++;
+			const div = document.createElement('div');
+			div.dataset.index = lineIDX;
+
+			const laneType = determineLaneType();
+			div.className = laneType;
+			lastLaneType = laneType;
+
+			if ( laneType === 'safe-zone' ) {
+				const nature = document.createElement('span');
+
+				nature.textContent = safeTextPool[randI(safeTextPool.length - 1)];
+				div.appendChild(nature);
+			}
+			else if ( laneType === 'river' ) {
+			    const river = document.createElement('div');
+				river.className = 'riverDeathZone';
+				div.appendChild(river);
+
+				const riverGraphic = document.createElement('span');
+				riverGraphic.textContent = riverTextPool[randI(riverTextPool.length - 1)];
+
+				const direction = riverGoLeft ? 'move-left' : 'move-right';
+				riverGoLeft = !riverGoLeft;
+
+				const RGduration = getRandDuration(9);
+				const RGdelay = rand(3);
+				riverGraphic.style.animation = `${direction} ${RGduration}s linear -${RGdelay}s infinite`;
+				river.appendChild(riverGraphic);
+
+				const duration = getRandDuration(6);
+				const logCount = randI(5, 3);
+				for (let i = 0; i < logCount; i++) {
+				    const log = document.createElement('span');
+					log.className = 'log';
+					log.textContent = "█".repeat(randI(6, 4))
+
+					const delay = (i * (duration / logCount));
+					log.style.animation = `${direction} ${duration}s linear -${delay}s infinite`;
+					div.appendChild(log);
+				}
+			}
+			else if ( laneType === 'road' ) {
+			    const direction = randI(1) > 0 ? 'move-left' : 'move-right';
+				const duration = getRandDuration();
+				const carCount = randI(4, 1);
+				for (let i = 0; i < carCount; i++) {
+				    const car = document.createElement('span');
+					car.className = 'hazard';
+					car.textContent = roadTextPool[randI(roadTextPool.length - 1)];
+
+					const delay = (i * (duration / carCount ));
+					car.style.animation = `${direction} ${duration}s linear -${delay}s infinite`;
+					div.appendChild(car);
+				}
+			}
+			document.body.appendChild(div);
+		}
+
+		function GameOver(message) {
+		    IsGameStart = false;
+
+			document.body.classList.add('scroll-locked');
+
+			alert(message);
+
+			document.querySelectorAll('.road, .river, .safe-zone').forEach(item => item.remove());
+			lineIDX = 0;
+
+			if (score > highscore) {
+			    highscore = score;
+				localStorage.setItem('HTMLCrossyRoad', highscore);
+			}
+
+			score = 0;
+			scoreSpan.textContent = score;
+			highscoreSpan.textContent = "Best Score: " + highscore;
+
+			currentDangerLanesCount = 0;
+			lastLaneType = 'safe-zone';
+
+			startBTN.disabled = false;
+			menu_div.classList.remove('hide');
+			window.scrollTo(0, 0);
+
+			for (let i = 0; i < 25; i++) { generateLine(); }
+		}
+
+		function unloadOldLanes() {
+		    const elements = document.querySelectorAll('.road, .river, .safe-zone');
+			let removeHeight = 0;
+
+			const toRemove = [];
+
+			elements.forEach(lane => {
+			    if (lane.getBoundingClientRect().bottom < 0) {
+					toRemove.push(lane);
+					removeHeight += lane.offsetHeight;
+				}
+			})
+
+			toRemove.forEach(lane => lane.remove());
+
+			if (removeHeight > 0) {
+				window.scrollBy(0, -removeHeight);
+				scrollLimitY -= removeHeight;
+			}
+		}
+
+
+
+		// ----- sleeper agents -----
+		function determineLaneType() {
+			if ( currentDangerLanesCount >= dangerLanesCount ) {
+                currentDangerLanesCount = 0;
+                dangerLanesCount = randI(8, 1);
+			    return 'safe-zone';
+			}
+
+			if ( lastLaneType === 'safe-zone' ) {
+    		    let tempLane = randI(1) > 0 ? 'safe-zone' : 'danger-zone';
+                if (tempLane === 'safe-zone' && !dontSafeZone) {
+                    dontSafeZone = true;
+                    return tempLane;
+                } else {
+                    currentDangerLanesCount++;
+                    tempLane = randI(8) > 1 ? 'road' : 'river';
+                    if (tempLane === 'river' && dangerLanesCount > 4) { dangerLanesCount = 4; }
+                    return tempLane;
+                }
+			} else {
+                dontSafeZone = false;
+			    currentDangerLanesCount++;
+				return ( lastLaneType === 'road' ) ? 'road' : 'river';
+			}
+		}
+
+		function getRandDuration(durationModifier = 0) {
+		    return rand(maxDUR + durationModifier, minDUR + durationModifier);
+		}
+
+		function rand(max, min = 0) {
+			return ( Math.random() * ( max - min ) + min ).toFixed(2);
+		}
+
+		function randI(max, min = 0) {
+			return Math.floor( Math.random() * ( max - min +  1 )) + min;
+		}
+	</script>
+</body>
+</html>
