@@ -265,18 +265,13 @@
 			" ~ ~~   ~ ~~~  ~  ° 𓆝  ~   ~~  ~~~ ~≈~~  ~~~  ~~    ~  ~   "
 		];
 
-		const roadTextPool = [
-			"VROOOOOOOOOOOM", "MLG", "MOMGETTHECAMERA!", "THERIDDLER", "B",
-			"Slurss", "DONTDOIT", "CANTTOUCHTHIS", "DIDDYBLUD", "SMHHHHHH",
-			"WhatIsThisDiddyBludDoinOnACalculator", "SkibidiToilet", "TOT",
-			"TUNG-TUNG-TUNG-SAHUR", "THE-BITE-OF-87", "RIZZ", "<<DEATH!>>",
-			"8====D","( ͡° ͜ʖ ͡°)","¯\_(ツ)_/¯","KUPAL","!##!$%","LOREM IPSUM",
-			"><(((('>",")xxxxx[;;;;;;;;;>","BAHALA=NA","MAYAMATSKABOSSSSS",
-			">:()","HOLLOW-PURPLE","AMBER!!!ALERT","HEROBRINE","ENTITY303",
-			"Mambo","I'mCrineSon","Password123","[BIGSHOT!!!]","TV-TIME!!",
-			"Kachow","Jumpscare","UltraGassy","I_Like_Femboys","AlphaMale"
-		];
-
+		fetch('roadTextPool.txt')
+			.then(response => response.txt())
+			.then(data => {
+				const roadTextPool = data.split('\n')
+					.map(line => line.trim())
+					.filter(line => line.length > 0);
+			}
 
 
 		// ----- Initialize -----
