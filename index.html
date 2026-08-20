@@ -265,23 +265,32 @@
 			" ~ ~~   ~ ~~~  ~  ° 𓆝  ~   ~~  ~~~ ~≈~~  ~~~  ~~    ~  ~   "
 		];
 
-		const roadTextPool = [
-			"VROOOOOOOOOOOM", "MLG", "MOMGETTHECAMERA!", "THERIDDLER", "B",
-			"Slurss", "DONTDOIT", "CANTTOUCHTHIS", "DIDDYBLUD", "SMHHHHHH",
-			"WhatIsThisDiddyBludDoinOnACalculator", "SkibidiToilet", "TOT",
-			"TUNG-TUNG-TUNG-SAHUR", "THE-BITE-OF-87", "RIZZ", "<<DEATH!>>",
-			"( ͡° ͜ʖ ͡°)", "¯\\_(ツ)_/¯", "!##!$%", "LOREM IPSUM", "HEROBRINE", 
-			"><(((('>", ")xxxxx[;;;;;;;;;>", ">:()", "HOLLOW-PURPLE", "AMBER!!!ALERT",
-			"Mambo", "I'mCrineSon", "Password123", "[BIGSHOT!!!]", "TV-TIME!!",
-			"Kachow", "Jumpscare", "Something", "ENTITY303", "DAAAMN!!!!!"
-		];
+		let roadTextPool = [];
+		async function getRoadTextPull() {
+			try { 
+				const response = await fetch('roadTextPool.txt');
+				if (!response.ok) { throw new Error(`Error: roadTextPool fetch status: ${response.status}`); }
+
+			const RTPData = await response.text();
+
+			roadTextPool = RTPData.split('\n')
+				.map(line => line.trim())
+				.filter(line => line.length > 0);
+
+			for (let i = 0; i < 25; i++) { generateLine(); }
+			} catch (error) {
+				console.error("Failed to load text file. Falling back to default data.", error);
+				roadTextPool = ["placeholder :("];
+				for (let i = 0; i < 25; i++) { generateLine(); }
+			}
+		}
+		getRoadTextPull();
 
 
 
 		// ----- Initialize -----
 		scoreSpan.textContent = score;
 		highscoreSpan.textContent = "Best Score: " + highscore;
-		for (let i = 0; i < 25; i++) { generateLine(); }
 
 
 
