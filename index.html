@@ -20,9 +20,9 @@
 
 		Road BG: #320823
 		Road Border: #a84683
-		River BG: #7d215b
+		River Outline Color: #7d215b
 		River Death Zone Text: #9d487e
-		River Death Zone Color: #6b1c4e
+		River Color: #6b1c4e
 
 		Hazard Color: #d4ff00
 
@@ -133,7 +133,7 @@
 
 
 		.river {
-			background-color: #7d215b;
+			background-color: #6b1c4e;
 			color: #9d487e;
 			z-index: 1;
 		}
@@ -147,7 +147,16 @@
             text-align-last: justify;
 		}
 
+		
+		/* ===== rivers edge styling ===== ############################## */
 
+		.safe-zone + .river {
+			box-shadow: inset 0 7px 0 0 #7d215b;
+		}
+		
+		.river:has(+ .safe-zone) {
+			box-shadow: inset 0 -7px 0 0 #7d215b;
+		}
 
 		/* ===== river death zone + design "~" setup ===== ############################## */
 
@@ -159,6 +168,8 @@
 			width: 100%;
 			height: 80%;
 			cursor: not-allowed;
+
+			letter-spacing: 20px;
 
 			position: relative;
 		}
